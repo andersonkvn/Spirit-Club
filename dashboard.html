@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Spirit Club Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0A0C10;--surface:#12151C;--card:#181D28;
+  --border:#222836;--accent:#00E5A0;--blue:#3B82F6;
+  --warn:#F59E0B;--red:#EF4444;--purple:#A78BFA;
+  --text:#EEF2FF;--muted:#5A6A8A;--subtle:#1E2436;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* NAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;height:54px;background:var(--surface);
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;gap:12px}
+.brand{font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:700;white-space:nowrap}
+.brand span{color:var(--accent)}
+.nav-tabs{display:flex;gap:2px;flex:1;justify-content:center}
+.nav-tab{padding:6px 14px;border-radius:8px;border:none;background:transparent;
+  color:var(--muted);font-family:'Inter',sans-serif;font-size:13px;
+  cursor:pointer;transition:background .15s,color .15s;white-space:nowrap}
+.nav-tab:hover{background:var(--subtle);color:var(--text)}
+.nav-tab.active{background:rgba(0,229,160,0.12);color:var(--accent)}
+.user-area{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.user-chip{display:flex;align-items:center;gap:7px;background:var(--card);
+  border:1px solid var(--border);border-radius:20px;padding:4px 12px 4px 5px;
+  font-size:12px;color:var(--muted)}
+.avatar{width:24px;height:24px;border-radius:50%;background:rgba(0,229,160,.15);
+  color:var(--accent);font-size:10px;font-weight:600;
+  display:flex;align-items:center;justify-content:center}
+.btn-sm{background:transparent;border:1px solid var(--border);color:var(--muted);
+  font-family:'Inter',sans-serif;font-size:12px;padding:5px 11px;
+  border-radius:7px;cursor:pointer;transition:color .15s,border-color .15s}
+.btn-sm:hover{color:var(--text);border-color:var(--muted)}
+.badge-admin{font-size:10px;background:rgba(245,158,11,.15);color:var(--warn);
+  border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:2px 8px;font-weight:500}
+
+/* LAYOUT */
+.page{display:none;padding:28px 28px;max-width:1200px;margin:0 auto}
+.page.active{display:block}
+
+/* PAGE HEADER */
+.ph{margin-bottom:22px}
+.ph-title{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.3px}
+.ph-title em{color:var(--accent);font-style:normal}
+.ph-sub{font-size:12px;color:var(--muted);margin-top:3px}
+
+/* METRICS GRID */
+.mg{display:grid;gap:12px;margin-bottom:22px}
+.mg-4{grid-template-columns:repeat(4,1fr)}
+.mg-5{grid-template-columns:repeat(5,1fr)}
+.mg-3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:900px){.mg-4,.mg-5{grid-template-columns:repeat(2,1fr)}.mg-3{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.mg-4,.mg-5,.mg-3{grid-template-columns:1fr 1fr}}
+.mc{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:16px 18px;position:relative;overflow:hidden}
+.mc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:var(--mc-c,var(--accent));opacity:.7}
+.mc.blue{--mc-c:var(--blue)}.mc.warn{--mc-c:var(--warn)}
+.mc.red{--mc-c:var(--red)}.mc.purple{--mc-c:var(--purple)}
+.mc-label{font-size:10px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.5px;font-weight:600;margin-bottom:6px}
+.mc-val{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;
+  letter-spacing:-1px;line-height:1}
+.mc-sub{font-size:11px;color:var(--muted);margin-top:5px}
+.mc-sub b{color:var(--text);font-weight:500}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:18px}
+.card-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.card-title{font-size:13px;font-weight:600}
+.card-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.chart-wrap{position:relative;height:220px}
+
+/* TWO COL */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+@media(max-width:720px){.two-col{grid-template-columns:1fr}}
+
+/* TABLES */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{padding:8px 12px;text-align:left;font-size:10px;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.4px;font-weight:600;
+  border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr:hover td{background:rgba(255,255,255,.02)}
+.tbl .num{font-family:'Space Grotesk',sans-serif;font-weight:600}
+.tbl .c-green{color:var(--accent)}.tbl .c-blue{color:#60A5FA}
+.tbl .c-warn{color:var(--warn)}.tbl .c-red{color:var(--red)}
+.tbl .c-purple{color:var(--purple)}.tbl .c-muted{color:var(--muted)}
+.rank-medal{font-size:16px;width:28px;display:inline-block;text-align:center}
+
+/* LEADERBOARD ROW */
+.lb-row{display:flex;align-items:center;gap:12px;
+  background:var(--subtle);border-radius:9px;padding:11px 14px;margin-bottom:6px;
+  transition:background .15s}
+.lb-row:hover{background:#252D42}
+.lb-rank{width:26px;font-size:12px;color:var(--muted);text-align:center;flex-shrink:0}
+.lb-av{width:28px;height:28px;border-radius:50%;display:flex;
+  align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
+.lb-name{flex:1;font-size:13px;font-weight:500;min-width:0}
+.lb-name small{display:block;font-size:11px;color:var(--muted);font-weight:400}
+.lb-val{text-align:right;flex-shrink:0}
+.lb-big{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700}
+.lb-small{font-size:11px;color:var(--muted)}
+.lb-bar-bg{width:80px;height:4px;background:var(--border);border-radius:2px;flex-shrink:0}
+.lb-bar{height:4px;border-radius:2px;transition:width .6s ease}
+
+/* HIGH CARDS */
+.high-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+@media(max-width:600px){.high-grid{grid-template-columns:1fr}}
+.high-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+.high-card-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:12px}
+.high-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.high-item:last-child{border-bottom:none;padding-bottom:0}
+.high-pos{width:20px;font-size:11px;color:var(--muted);text-align:center;flex-shrink:0}
+.high-name{flex:1;font-size:13px}
+.high-date{font-size:11px;color:var(--muted)}
+.high-score{font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:700}
+
+/* WEEKLY AVG CHART */
+.week-filter{display:flex;gap:6px;flex-wrap:wrap}
+.wf-btn{padding:4px 12px;border-radius:6px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);font-family:'Inter',sans-serif;
+  font-size:11px;cursor:pointer;transition:all .15s}
+.wf-btn.active,.wf-btn:hover{background:rgba(0,229,160,.1);
+  color:var(--accent);border-color:rgba(0,229,160,.3)}
+
+/* INPUT FORM */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:14px}
+.ff{display:flex;flex-direction:column;gap:5px}
+.ff label{font-size:11px;color:var(--muted)}
+.ff input,.ff select{background:var(--subtle);border:1px solid var(--border);
+  border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;
+  font-size:13px;padding:8px 10px;outline:none;transition:border-color .15s}
+.ff input:focus,.ff select:focus{border-color:var(--accent)}
+.btn-primary{background:var(--accent);color:#000;border:none;border-radius:8px;
+  font-family:'Inter',sans-serif;font-size:13px;font-weight:600;
+  padding:10px 22px;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.85}
+.form-msg{font-size:12px;margin-top:8px;min-height:16px}
+.form-msg.ok{color:var(--accent)}.form-msg.err{color:var(--red)}
+
+/* PREVIEW CALC */
+.preview-row{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap}
+.prev-box{background:var(--subtle);border-radius:8px;padding:10px 14px;flex:1;min-width:90px}
+.prev-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.prev-val{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700}
+
+/* LOADING */
+.loader{text-align:center;padding:50px 20px;color:var(--muted);font-size:13px}
+.spin{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:sp .7s linear infinite;margin:0 auto 12px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px}
+
+/* WEEKLY TABLE */
+.weekly-stat-row td:first-child{color:var(--muted);font-size:12px}
+
+/* ACCESS DENIED */
+.denied{text-align:center;padding:80px 20px}
+.denied-icon{font-size:40px;margin-bottom:14px}
+.denied h2{font-size:17px;margin-bottom:6px}
+.denied p{font-size:13px;color:var(--muted)}
+
+@media(max-width:600px){
+  .page{padding:16px}
+  .nav-tabs{gap:0}
+  .nav-tab{padding:6px 8px;font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- TOPNAV -->
+<nav class="topnav">
+  <div class="brand">Spirit <span>Club</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="go('leaderboard',this)">🏆 Leaderboard</button>
+    <button class="nav-tab" onclick="go('my',this)">📊 Statistik saya</button>
+    <button class="nav-tab" onclick="go('input',this)">➕ Input skor</button>
+    <button class="nav-tab admin-only" style="display:none" onclick="go('admin',this)">⚙️ Admin</button>
+  </div>
+  <div class="user-area">
+    <span class="badge-admin" id="adminBadge" style="display:none">Admin</span>
+    <div class="user-chip"><div class="avatar" id="uIni">?</div><span id="uEmail" style="max-width:140px;overflow:hidden;text-overflow:ellipsis">...</span></div>
+    <button class="btn-sm" onclick="logout()">Keluar</button>
+  </div>
+</nav>
+
+<!-- ════ PAGE: LEADERBOARD ════ -->
+<div class="page active" id="pg-leaderboard">
+  <div class="ph">
+    <div class="ph-title">Leaderboard <em>Klub</em></div>
+    <div class="ph-sub" id="lb-period">Musim 2025 · diurutkan dari average tertinggi</div>
+  </div>
+
+  <!-- HIGH SERIES & HIGH GAME -->
+  <div class="high-grid">
+    <div class="high-card">
+      <div class="high-card-label">🎯 Weekly High Series — Top 5</div>
+      <div id="highSeriesList"><div class="loader"><div class="spin"></div></div></div>
+    </div>
+    <div class="high-card">
+      <div class="high-card-label">⚡ Weekly High Game — Top 5</div>
+      <div id="highGameList"><div class="loader"><div class="spin"></div></div></div>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD TABLE -->
+  <div class="card">
+    <div class="card-hdr">
+      <div><div class="card-title">Rangking bowler</div><div class="card-sub">Average · Handicap · Total Scratch · Total Handicap · diurutkan average tertinggi</div></div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl" id="lbTable">
+        <thead><tr>
+          <th>#</th>
+          <th>Bowler</th>
+          <th>Sesi</th>
+          <th>Average</th>
+          <th>Handicap</th>
+          <th>Total Scratch</th>
+          <th>Total Handicap</th>
+          <th>High Series</th>
+          <th>High Game</th>
+        </tr></thead>
+        <tbody id="lbBody"><tr><td colspan="9"><div class="loader"><div class="spin"></div></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════ PAGE: STATISTIK SAYA ════ -->
+<div class="page" id="pg-my">
+  <div class="ph">
+    <div class="ph-title">Statistik <em id="myNameTitle">saya</em></div>
+    <div class="ph-sub" id="myEmailSub">—</div>
+  </div>
+
+  <!-- METRICS -->
+  <div class="mg mg-5" id="myMetrics">
+    <div class="mc"><div class="mc-label">Average</div><div class="mc-val" id="m-avg">—</div><div class="mc-sub">Semua sesi</div></div>
+    <div class="mc blue"><div class="mc-label">High Series</div><div class="mc-val" id="m-hs">—</div><div class="mc-sub" id="m-hs-d">—</div></div>
+    <div class="mc warn"><div class="mc-label">High Game</div><div class="mc-val" id="m-hg">—</div><div class="mc-sub" id="m-hg-d">—</div></div>
+    <div class="mc purple"><div class="mc-label">Handicap</div><div class="mc-val" id="m-hc">—</div><div class="mc-sub">Saat ini</div></div>
+    <div class="mc red"><div class="mc-label">Total sesi</div><div class="mc-val" id="m-sesi">—</div><div class="mc-sub" id="m-sesi-d">—</div></div>
+  </div>
+
+  <!-- TREN AVERAGE MINGGUAN -->
+  <div class="two-col">
+    <div class="card">
+      <div class="card-hdr">
+        <div><div class="card-title">Tren average mingguan</div><div class="card-sub">Average per sesi dari waktu ke waktu</div></div>
+        <div class="week-filter">
+          <button class="wf-btn active" onclick="setWeekFilter(0,this)">Semua</button>
+          <button class="wf-btn" onclick="setWeekFilter(8,this)">8 sesi</button>
+          <button class="wf-btn" onclick="setWeekFilter(4,this)">4 sesi</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="trendChart" role="img" aria-label="Tren average mingguan"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div><div class="card-title">Distribusi game</div><div class="card-sub">Jumlah game per rentang skor</div></div></div>
+      <div class="chart-wrap"><canvas id="distChart" role="img" aria-label="Distribusi skor game"></canvas></div>
+    </div>
+  </div>
+
+  <!-- STATISTIK PER MINGGU (TABLE) -->
+  <div class="card">
+    <div class="card-hdr"><div><div class="card-title">Statistik per sesi</div><div class="card-sub">Riwayat lengkap — Game 1 · 2 · 3 · Total Scratch · Handicap Series · Average</div></div></div>
+    <div style="overflow-x:auto">
+      <table class="tbl" id="weeklyTable">
+        <thead><tr>
+          <th>Tanggal</th>
+          <th>Game 1</th><th>Game 2</th><th>Game 3</th>
+          <th>Total Scratch</th>
+          <th>Handicap/game</th>
+          <th>Total Handicap</th>
+          <th>Average</th>
+          <th>High Game</th>
+        </tr></thead>
+        <tbody id="weeklyBody"><tr><td colspan="9"><div class="loader"><div class="spin"></div></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════ PAGE: INPUT SKOR ════ -->
+<div class="page" id="pg-input">
+  <div class="ph"><div class="ph-title">Input <em>skor baru</em></div><div class="ph-sub">Tambah skor sesi bermain. Total, Average, Handicap dihitung otomatis.</div></div>
+  <div class="card">
+    <div class="form-grid">
+      <div class="ff"><label>Tanggal</label><input type="date" id="i-date"></div>
+      <div class="ff"><label>Game 1</label><input type="number" id="i-g1" min="0" max="300" placeholder="mis. 168" oninput="calcPreview()"></div>
+      <div class="ff"><label>Game 2</label><input type="number" id="i-g2" min="0" max="300" placeholder="mis. 175" oninput="calcPreview()"></div>
+      <div class="ff"><label>Game 3</label><input type="number" id="i-g3" min="0" max="300" placeholder="mis. 162" oninput="calcPreview()"></div>
+      <div class="ff"><label>Keterangan</label><input type="text" id="i-note" placeholder="Latihan, turnamen..."></div>
+    </div>
+    <div class="preview-row" id="previewRow" style="display:none">
+      <div class="prev-box"><div class="prev-label">Total Scratch</div><div class="prev-val c-green" id="p-total">—</div></div>
+      <div class="prev-box"><div class="prev-label">Average</div><div class="prev-val" style="color:#60A5FA" id="p-avg">—</div></div>
+      <div class="prev-box"><div class="prev-label">High Game</div><div class="prev-val" style="color:var(--warn)" id="p-best">—</div></div>
+      <div class="prev-box"><div class="prev-label">Handicap/game</div><div class="prev-val" style="color:var(--purple)" id="p-hc">—</div></div>
+      <div class="prev-box"><div class="prev-label">Total Handicap</div><div class="prev-val" style="color:var(--red)" id="p-thc">—</div></div>
+    </div>
+    <div style="margin-top:16px">
+      <button class="btn-primary" onclick="submitSkor()">Simpan skor</button>
+      <div class="form-msg" id="formMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ PAGE: ADMIN ════ -->
+<div class="page" id="pg-admin">
+  <div class="ph"><div class="ph-title">Panel <em>Admin</em></div><div class="ph-sub">Kelola member dan lihat semua data</div></div>
+  <div class="card">
+    <div class="card-hdr"><div><div class="card-title">Tambah / edit member</div></div></div>
+    <div class="form-grid">
+      <div class="ff"><label>ID Member</label><input type="text" id="a-id" placeholder="M006"></div>
+      <div class="ff"><label>Nama lengkap</label><input type="text" id="a-nama" placeholder="Nama Member"></div>
+      <div class="ff"><label>Email Gmail</label><input type="email" id="a-email" placeholder="member@gmail.com"></div>
+      <div class="ff"><label>Handicap awal</label><input type="number" id="a-hc" placeholder="15" min="0" max="50"></div>
+      <div class="ff"><label>Base score (untuk HC)</label><input type="number" id="a-base" placeholder="200" value="200"></div>
+    </div>
+    <button class="btn-primary" onclick="addMember()">Tambah member</button>
+    <div class="form-msg" id="adminMsg"></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div><div class="card-title">Daftar member terdaftar</div></div></div>
+    <div style="overflow-x:auto">
+      <table class="tbl" id="memberTable">
+        <thead><tr><th>ID</th><th>Nama</th><th>Email</th><th>Handicap</th><th>Base</th><th>Terdaftar</th></tr></thead>
+        <tbody id="memberBody"><tr><td colspan="6"><div class="loader"><div class="spin"></div></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── CONFIG ─────────────────────────────────────────────────────────── */
+const SUPABASE_URL     = 'GANTI_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'GANTI_SUPABASE_ANON_KEY';
+const ADMIN_EMAILS     = ['GANTI_EMAIL_ADMIN@gmail.com'];
+const HC_BASE          = 200;   // base score untuk hitung handicap
+const HC_FACTOR        = 0.8;   // faktor handicap (0.8 = 80%)
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const COLORS = ['#00E5A0','#3B82F6','#F59E0B','#EC4899','#A78BFA','#34D399','#F87171','#60A5FA'];
+const MEDALS = ['🥇','🥈','🥉'];
+
+let ME = null, IS_ADMIN = false;
+let myScores = [], myMember = null;
+let trendChartI = null, distChartI = null;
+let weekFilter = 0;
+
+/* ── INIT ─────────────────────────────────────────────────────────── */
+async function init(){
+  const { data:{session} } = await sb.auth.getSession();
+  if(!session){ window.location.href='index.html'; return; }
+  ME = session.user;
+  IS_ADMIN = ADMIN_EMAILS.includes(ME.email);
+
+  const name = ME.user_metadata?.full_name || ME.email.split('@')[0];
+  const ini  = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('uIni').textContent   = ini;
+  document.getElementById('uEmail').textContent = ME.email;
+
+  if(IS_ADMIN){
+    document.getElementById('adminBadge').style.display='';
+    document.querySelectorAll('.admin-only').forEach(el=>el.style.display='');
+  }
+  document.getElementById('i-date').value = new Date().toISOString().slice(0,10);
+
+  loadLeaderboard();
+  loadMyStats();
+}
+
+async function logout(){ await sb.auth.signOut(); window.location.href='index.html'; }
+
+/* ── NAVIGATION ──────────────────────────────────────────────────── */
+function go(page, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pg-'+page).classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(page==='admin' && IS_ADMIN) loadAdminMembers();
+}
+
+/* ── HANDICAP CALC ───────────────────────────────────────────────── */
+function calcHandicap(avg, base=HC_BASE, factor=HC_FACTOR){
+  return Math.max(0, Math.round((base - avg) * factor));
+}
+
+/* ── LEADERBOARD ─────────────────────────────────────────────────── */
+async function loadLeaderboard(){
+  const [{ data:scores }, { data:members }] = await Promise.all([
+    sb.from('skor_mingguan').select('*').order('tanggal', {ascending:false}),
+    sb.from('daftar_member').select('*')
+  ]);
+  if(!scores||!members) return;
+
+  // Group by email
+  const map = {};
+  scores.forEach(r=>{
+    if(!map[r.email]) map[r.email]={ nama:r.nama_member, email:r.email, rows:[] };
+    map[r.email].rows.push(r);
+  });
+
+  // Build stats
+  const stats = Object.values(map).map(m=>{
+    const avgs   = m.rows.map(r=>r.average);
+    const totals = m.rows.map(r=>r.total_skor);
+    const games  = m.rows.flatMap(r=>[r.game1,r.game2,r.game3]);
+    const avg    = +(avgs.reduce((s,v)=>s+v,0)/avgs.length).toFixed(1);
+    const hc     = calcHandicap(avg);
+    const hcPerGame = hc;
+    const totScratch = totals.reduce((s,v)=>s+v,0);
+    const totHC     = m.rows.reduce((s,r)=>s+(r.total_skor + hcPerGame*3),0);
+    const highSeries = Math.max(...totals);
+    const highGame   = Math.max(...games);
+    const hsRow = m.rows.find(r=>r.total_skor===highSeries);
+    return { nama:m.nama, email:m.email, sesi:m.rows.length, avg, hc,
+      totScratch, totHC, highSeries, highGame,
+      hsDate: hsRow?.tanggal||'', rows: m.rows };
+  }).sort((a,b)=>b.avg-a.avg);
+
+  renderLbTable(stats);
+  renderHighSeries(stats);
+  renderHighGame(stats, scores);
+}
+
+function renderLbTable(stats){
+  const tbody = document.getElementById('lbBody');
+  if(!stats.length){ tbody.innerHTML=`<tr><td colspan="9"><div class="empty">Belum ada data</div></td></tr>`; return; }
+  tbody.innerHTML = stats.map((s,i)=>{
+    const col = COLORS[i%COLORS.length];
+    const ini = s.nama.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const medal = i<3 ? `<span class="rank-medal">${MEDALS[i]}</span>` : `<span class="rank-medal" style="color:var(--muted);font-size:13px">${i+1}</span>`;
+    return `<tr>
+      <td>${medal}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:28px;height:28px;border-radius:50%;background:${col}22;color:${col};
+            font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ini}</div>
+          <span style="font-weight:500">${s.nama}</span>
+        </div>
+      </td>
+      <td class="c-muted num">${s.sesi}</td>
+      <td class="num c-green" style="color:${col}">${s.avg.toFixed(1)}</td>
+      <td class="num c-purple">${s.hc}</td>
+      <td class="num c-blue">${s.totScratch.toLocaleString()}</td>
+      <td class="num" style="color:var(--warn)">${s.totHC.toLocaleString()}</td>
+      <td class="num c-green">${s.highSeries}</td>
+      <td class="num c-warn">${s.highGame}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderHighSeries(stats){
+  const top5 = [...stats].sort((a,b)=>b.highSeries-a.highSeries).slice(0,5);
+  const el = document.getElementById('highSeriesList');
+  if(!top5.length){ el.innerHTML='<div class="empty">Belum ada data</div>'; return; }
+  el.innerHTML = top5.map((s,i)=>`
+    <div class="high-item">
+      <div class="high-pos">${MEDALS[i]||i+1}</div>
+      <div style="flex:1"><div class="high-name">${s.nama}</div><div class="high-date">${s.hsDate}</div></div>
+      <div class="high-score" style="color:var(--accent)">${s.highSeries}</div>
+    </div>`).join('');
+}
+
+function renderHighGame(stats, allScores){
+  // top 5 individual game across all scores
+  const allGames = [];
+  allScores.forEach(r=>{
+    [r.game1,r.game2,r.game3].forEach((g,gi)=>{
+      allGames.push({ score:g, nama:r.nama_member, date:r.tanggal, game:`Game ${gi+1}` });
+    });
+  });
+  const top5 = allGames.sort((a,b)=>b.score-a.score).slice(0,5);
+  const el = document.getElementById('highGameList');
+  if(!top5.length){ el.innerHTML='<div class="empty">Belum ada data</div>'; return; }
+  el.innerHTML = top5.map((g,i)=>`
+    <div class="high-item">
+      <div class="high-pos">${MEDALS[i]||i+1}</div>
+      <div style="flex:1"><div class="high-name">${g.nama}</div><div class="high-date">${g.date} · ${g.game}</div></div>
+      <div class="high-score" style="color:var(--warn)">${g.score}</div>
+    </div>`).join('');
+}
+
+/* ── MY STATS ─────────────────────────────────────────────────────── */
+async function loadMyStats(){
+  const [{ data:scores }, { data:member }] = await Promise.all([
+    sb.from('skor_mingguan').select('*').eq('email',ME.email).order('tanggal',{ascending:true}),
+    sb.from('daftar_member').select('*').eq('email',ME.email).single()
+  ]);
+  myScores = scores || [];
+  myMember = member;
+
+  const name = myMember?.nama_member || ME.user_metadata?.full_name || ME.email.split('@')[0];
+  document.getElementById('myNameTitle').textContent = name.split(' ')[0];
+  document.getElementById('myEmailSub').textContent  = ME.email + (myMember ? ` · ID: ${myMember.id_member}` : '');
+
+  if(!myScores.length){
+    ['m-avg','m-hs','m-hg','m-hc','m-sesi'].forEach(id=>document.getElementById(id).textContent='—');
+    return;
+  }
+
+  const avgs   = myScores.map(r=>r.average);
+  const totals = myScores.map(r=>r.total_skor);
+  const games  = myScores.flatMap(r=>[r.game1,r.game2,r.game3]);
+  const avg    = +(avgs.reduce((s,v)=>s+v,0)/avgs.length).toFixed(1);
+  const hc     = calcHandicap(avg);
+  const hs     = Math.max(...totals);
+  const hg     = Math.max(...games);
+  const hsRow  = myScores.find(r=>r.total_skor===hs);
+  const hgRow  = myScores.find(r=>Math.max(r.game1,r.game2,r.game3)===hg);
+
+  document.getElementById('m-avg').textContent  = avg.toFixed(1);
+  document.getElementById('m-hs').textContent   = hs;
+  document.getElementById('m-hs-d').innerHTML   = `<b>${hsRow?.tanggal||''}</b>`;
+  document.getElementById('m-hg').textContent   = hg;
+  document.getElementById('m-hg-d').innerHTML   = `<b>${hgRow?.tanggal||''}</b>`;
+  document.getElementById('m-hc').textContent   = hc;
+  document.getElementById('m-sesi').textContent = myScores.length;
+  document.getElementById('m-sesi-d').textContent= `${games.length} game total`;
+
+  renderTrend();
+  renderDist(games);
+  renderWeeklyTable(hc);
+}
+
+function setWeekFilter(n, btn){
+  weekFilter = n;
+  document.querySelectorAll('.wf-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTrend();
+}
+
+function renderTrend(){
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  if(trendChartI) trendChartI.destroy();
+  let data = weekFilter ? myScores.slice(-weekFilter) : myScores;
+  if(!data.length) return;
+
+  trendChartI = new Chart(ctx,{
+    type:'line',
+    data:{
+      labels: data.map(r=>r.tanggal.slice(5)),
+      datasets:[
+        { label:'Average', data:data.map(r=>r.average),
+          borderColor:'#00E5A0', backgroundColor:'rgba(0,229,160,.07)',
+          borderWidth:2, pointRadius:4, pointBackgroundColor:'#00E5A0',
+          tension:.35, fill:true, yAxisID:'y' },
+        { label:'Total Scratch', data:data.map(r=>r.total_skor),
+          borderColor:'#3B82F6', backgroundColor:'transparent',
+          borderWidth:1.5, pointRadius:3, borderDash:[4,3],
+          tension:.35, fill:false, yAxisID:'y2' }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:true, labels:{ color:'#5A6A8A', font:{size:11}, boxWidth:10, padding:12 } } },
+      scales:{
+        y:{ grid:{color:'#222836'}, ticks:{color:'#5A6A8A'}, position:'left', suggestedMin:130, suggestedMax:230,
+            title:{display:true, text:'Average', color:'#5A6A8A', font:{size:10}} },
+        y2:{ grid:{display:false}, ticks:{color:'#5A6A8A'}, position:'right',
+             title:{display:true, text:'Total', color:'#5A6A8A', font:{size:10}} },
+        x:{ grid:{color:'#222836'}, ticks:{color:'#5A6A8A'} }
+      }
+    }
+  });
+}
+
+function renderDist(games){
+  const ctx = document.getElementById('distChart').getContext('2d');
+  if(distChartI) distChartI.destroy();
+  const ranges = ['<130','130-149','150-169','170-189','190-209','210-229','230+'];
+  const counts = ranges.map(()=>0);
+  games.forEach(g=>{
+    if(g<130) counts[0]++;
+    else if(g<150) counts[1]++;
+    else if(g<170) counts[2]++;
+    else if(g<190) counts[3]++;
+    else if(g<210) counts[4]++;
+    else if(g<230) counts[5]++;
+    else counts[6]++;
+  });
+  distChartI = new Chart(ctx,{
+    type:'bar',
+    data:{ labels:ranges,
+      datasets:[{ data:counts,
+        backgroundColor:['#EF444488','#F59E0B88','#F59E0B88','#00E5A088','#00E5A088','#3B82F688','#A78BFA88'],
+        borderRadius:5 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{
+        x:{ grid:{display:false}, ticks:{color:'#5A6A8A',font:{size:10}} },
+        y:{ grid:{color:'#222836'}, ticks:{color:'#5A6A8A',stepSize:1} }
+      }
+    }
+  });
+}
+
+function renderWeeklyTable(hc){
+  const tbody = document.getElementById('weeklyBody');
+  const sorted = [...myScores].sort((a,b)=>b.tanggal.localeCompare(a.tanggal));
+  if(!sorted.length){ tbody.innerHTML=`<tr><td colspan="9"><div class="empty">Belum ada skor. Yuk input!</div></td></tr>`; return; }
+  tbody.innerHTML = sorted.map(r=>{
+    const totHC  = r.total_skor + (hc * 3);
+    const hg     = Math.max(r.game1, r.game2, r.game3);
+    const isHG   = (g)=> g===hg ? `style="color:var(--warn);font-weight:700"` : '';
+    return `<tr>
+      <td style="color:var(--muted);font-size:12px">${r.tanggal}</td>
+      <td class="num" ${isHG(r.game1)}>${r.game1}</td>
+      <td class="num" ${isHG(r.game2)}>${r.game2}</td>
+      <td class="num" ${isHG(r.game3)}>${r.game3}</td>
+      <td class="num c-green">${r.total_skor}</td>
+      <td class="num c-purple">${hc}</td>
+      <td class="num" style="color:var(--warn)">${totHC}</td>
+      <td class="num c-blue">${Number(r.average).toFixed(1)}</td>
+      <td class="num" style="color:var(--warn);font-weight:700">${hg}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── INPUT SKOR ──────────────────────────────────────────────────── */
+function calcPreview(){
+  const g1=+document.getElementById('i-g1').value||0;
+  const g2=+document.getElementById('i-g2').value||0;
+  const g3=+document.getElementById('i-g3').value||0;
+  if(!g1&&!g2&&!g3){ document.getElementById('previewRow').style.display='none'; return; }
+  const total = g1+g2+g3;
+  const cnt   = [g1,g2,g3].filter(v=>v>0).length;
+  const avg   = +(total/cnt).toFixed(1);
+  const best  = Math.max(g1,g2,g3);
+  const hc    = myMember ? calcHandicap(avg) : (calcHandicap(avg));
+  const totHC = total + hc*3;
+  document.getElementById('previewRow').style.display='flex';
+  document.getElementById('p-total').textContent = total;
+  document.getElementById('p-avg').textContent   = avg;
+  document.getElementById('p-best').textContent  = best;
+  document.getElementById('p-hc').textContent    = hc;
+  document.getElementById('p-thc').textContent   = totHC;
+}
+
+async function submitSkor(){
+  const date = document.getElementById('i-date').value;
+  const g1=+document.getElementById('i-g1').value;
+  const g2=+document.getElementById('i-g2').value;
+  const g3=+document.getElementById('i-g3').value;
+  const note= document.getElementById('i-note').value;
+  const msg = document.getElementById('formMsg');
+
+  if(!date||!g1||!g2||!g3){ msg.textContent='Isi tanggal dan semua game dulu.'; msg.className='form-msg err'; return; }
+  if([g1,g2,g3].some(v=>v<0||v>300)){ msg.textContent='Skor harus 0–300.'; msg.className='form-msg err'; return; }
+  if(!myMember){ msg.textContent='Email kamu belum terdaftar. Hubungi admin.'; msg.className='form-msg err'; return; }
+
+  const total = g1+g2+g3;
+  const avg   = +(total/3).toFixed(1);
+  const best  = Math.max(g1,g2,g3);
+  const hc    = calcHandicap(avg);
+  const totHC = total + hc*3;
+
+  const{ error }= await sb.from('skor_mingguan').insert({
+    tanggal:date, email:ME.email,
+    id_member:myMember.id_member, nama_member:myMember.nama_member,
+    game1:g1, game2:g2, game3:g3,
+    total_skor:total, average:avg, best_game:best,
+    handicap_per_game:hc, total_handicap:totHC,
+    keterangan:note
+  });
+
+  if(error){ msg.textContent='Gagal: '+error.message; msg.className='form-msg err'; return; }
+  msg.textContent='Skor berhasil disimpan! 🎳'; msg.className='form-msg ok';
+  ['i-g1','i-g2','i-g3','i-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('previewRow').style.display='none';
+  await loadMyStats();
+  await loadLeaderboard();
+  setTimeout(()=>{ msg.textContent=''; },3000);
+}
+
+/* ── ADMIN ───────────────────────────────────────────────────────── */
+async function loadAdminMembers(){
+  const{ data }= await sb.from('daftar_member').select('*').order('id_member');
+  const tbody = document.getElementById('memberBody');
+  if(!data?.length){ tbody.innerHTML='<tr><td colspan="6"><div class="empty">Belum ada member</div></td></tr>'; return; }
+  tbody.innerHTML = data.map(m=>`<tr>
+    <td class="c-muted">${m.id_member}</td>
+    <td style="font-weight:500">${m.nama_member}</td>
+    <td class="c-muted">${m.email}</td>
+    <td class="num c-purple">${m.handicap}</td>
+    <td class="num c-muted">${m.base_score||200}</td>
+    <td class="c-muted" style="font-size:12px">${(m.created_at||'').slice(0,10)}</td>
+  </tr>`).join('');
+}
+
+async function addMember(){
+  const id   = document.getElementById('a-id').value.trim().toUpperCase();
+  const nama = document.getElementById('a-nama').value.trim();
+  const email= document.getElementById('a-email').value.trim().toLowerCase();
+  const hc   = +document.getElementById('a-hc').value||15;
+  const base = +document.getElementById('a-base').value||200;
+  const msg  = document.getElementById('adminMsg');
+
+  if(!id||!nama||!email){ msg.textContent='Isi ID, Nama, dan Email.'; msg.className='form-msg err'; return; }
+
+  const{error}= await sb.from('daftar_member').insert({
+    id_member:id, nama_member:nama, email, handicap:hc, base_score:base
+  });
+  if(error){ msg.textContent='Gagal: '+error.message; msg.className='form-msg err'; return; }
+  msg.textContent=`Member ${nama} berhasil ditambahkan!`; msg.className='form-msg ok';
+  ['a-id','a-nama','a-email','a-hc'].forEach(i=>document.getElementById(i).value='');
+  loadAdminMembers();
+  setTimeout(()=>{ msg.textContent=''; },3000);
+}
+
+init();
+</script>
+</body>
+</html>
